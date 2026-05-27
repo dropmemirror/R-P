@@ -403,6 +403,10 @@ tr:last-child td{border-bottom:none}tr:hover td{background:var(--bg)}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
       <input type="text" id="st" placeholder="Αναζήτηση προϊόντος ή κωδικού..." oninput="render()">
     </div>
+    <select id="tg" onchange="render()">
+      <option value="none">Χωρίς ομαδοποίηση</option>
+      <option value="cat">Ομαδοποίηση: Κατηγορία</option>
+    </select>
     <select id="ts" onchange="render()">
       <option value="q-">Ποσότητα ↓</option>
       <option value="q+">Ποσότητα ↑</option>
@@ -1106,78 +1110,153 @@ function renderTotal(){
   var q=(document.getElementById('st').value||'').trim().toLowerCase();
   var sm=document.getElementById('ts').value;
   var mf=document.getElementById('mf').value;
+  var grp=document.getElementById('tg').value;
   var showP=NIGHTS>0;
   var ps=[];
   Object.values(TD).forEach(function(p){
-    var r=calcProdTotal(p);
-    if(r.qty<=0)return;
+    var r=calcProdTotal(p);if(r.qty<=0)return;
     if(q&&p.name.toLowerCase().indexOf(q)<0&&p.code.toLowerCase().indexOf(q)<0)return;
-    if(mf&&p.mm!==mf)return;
-    if(tCF&&p.cat!==tCF)return;
+    if(mf&&p.mm!==mf)return;if(tCF&&p.cat!==tCF)return;
     ps.push({code:p.code,name:p.name,mm:p.mm,cat:p.cat,_qty:r.qty,_val:r.val,_lines:r.lines,depts:r.depts});
   });
   if(sm==='q-')ps.sort(function(a,b){return b._qty-a._qty;});
   else if(sm==='q+')ps.sort(function(a,b){return a._qty-b._qty;});
   else if(sm==='n')ps.sort(function(a,b){return a.name.localeCompare(b.name,'el');});
   else if(sm==='d-')ps.sort(function(a,b){return b.depts.length-a.depts.length||b._qty-a._qty;});
-  else if(sm==='pppr-')ps.sort(function(a,b){return b._qty-a._qty;});
+  else ps.sort(function(a,b){return b._qty-a._qty;});
 
   var main=document.getElementById('mt');
   if(!ps.length){main.innerHTML='<div class="empty">&#128269; Δεν βρέθηκαν αποτελέσματα</div>';return;}
-  var mx=Math.max.apply(null,ps.map(function(p){return p._qty;}));
-  var wrap=document.createElement('div');wrap.className='tw';
-  var tbl=document.createElement('table');
   grandTotQty=ps.reduce(function(s,p){return s+p._qty;},0);
   var grandTotVal=ps.reduce(function(s,p){return s+p._val;},0);
-  tbl.innerHTML='<thead><tr>'+
-    '<th class="c" style="width:30px">#</th>'+
-    '<th style="width:100px">Κωδικός</th>'+
-    '<th>Περιγραφή &amp; Τμήματα</th>'+
-    '<th class="c" style="width:48px">ΜΜ</th>'+
-    '<th style="width:115px">Κατηγορία</th>'+
-    '<th class="c" style="width:38px">Κιν.</th>'+
-    '<th class="c" style="width:45px">Τμήμ.</th>'+
-    '<th class="r" style="width:100px">Σύν. Ποσ.</th>'+
-    '<th class="r pct-th" style="width:82px">% Ποσ.</th>'+
-    '<th class="r val-th" style="width:100px">Αξία €</th>'+
-    '<th class="r vpct-th" style="width:82px">% Αξίας</th>'+
-    (showP?'<th class="r pppr-th" style="width:82px">PPPN 🛏️</th>':'')+
-    (showP?'<th class="r cost-th" style="width:88px">Cost PPPN €</th>':'')+
-    '</tr></thead>';
-  var tb=document.createElement('tbody');
-  ps.forEach(function(p,i){
-    var bw=Math.max(2,Math.round((p._qty/mx)*80));
-    var pv=pppr(p._qty);
-    var cv=costPppn(p._val);
-    var tpct=grandTotQty>0?Math.round((p._qty/grandTotQty)*10000)/100:0;
-    var tpctBW=Math.round(tpct*0.5);
-    var tvpct=grandTotVal>0?Math.round((p._val/grandTotVal)*10000)/100:0;
-    var tvpctBW=Math.round(tvpct*0.5);
-    var pvCell=showP?(pv!==null?'<td class="pppr-cell">'+fmtPppr(pv)+'</td>':'<td class="pppr-na">—</td>'):'';
-    var cvCell=showP?(cv!==null?'<td class="cost-cell">'+fmtCost(cv)+'</td>':'<td class="val-na">—</td>'):'';
-    var valCell=p._val>0?'<td class="val-cell">'+fmtEur(p._val)+'</td>':'<td class="val-na">—</td>';
+  var mx=Math.max.apply(null,ps.map(function(p){return p._qty;}));
+  main.innerHTML='';
 
-    var pctCell='<td class="pct-cell"><div class="pct-bar-wrap"><div class="pct-bar-bg"><div class="pct-bar-fill" style="width:'+tpctBW+'%"></div></div><span class="pct-num">'+tpct.toFixed(2)+'%</span></div></td>';
-    var vpctCell='<td class="vpct-cell"><div class="vpct-bar-wrap"><div class="vpct-bar-bg"><div class="vpct-bar-fill" style="width:'+tvpctBW+'%"></div></div><span class="vpct-num">'+tvpct.toFixed(2)+'%</span></div></td>';
-    var tr=document.createElement('tr');
-    var pills=p.depts.slice().sort().map(function(d){
-      var sp=document.createElement('span');sp.className='dp';sp.textContent=d;return sp.outerHTML;
-    }).join('');
-    tr.innerHTML=
-      '<td class="c" style="color:var(--t3);font-size:12px">'+(i+1)+'</td>'+
-      '<td class="cod">'+esc(p.code)+'</td>'+
-      '<td><div style="margin-bottom:2px">'+esc(p.name)+'</div>'+
-      '<div style="font-size:11px;line-height:1.8">'+pills+'</div></td>'+
-      '<td class="c"><span class="mmb">'+esc(p.mm)+'</span></td>'+
-      '<td><span class="catb">'+icon(p.cat)+' '+esc(p.cat)+'</span></td>'+
-      '<td class="c" style="color:var(--t3)">'+p._lines+'</td>'+
-      '<td class="c"><span style="font-weight:600;color:var(--bl)">'+p.depts.length+'</span></td>'+
-      '<td class="r"><div class="qc"><div class="bar bar2" style="width:'+bw+'px"></div>'+
-      '<span class="qn">'+fmt(p._qty)+'</span></div></td>'+pctCell+vpctCell+valCell+pvCell+cvCell;
-    tb.appendChild(tr);
-  });
-  tbl.appendChild(tb);wrap.appendChild(tbl);
-  main.innerHTML='';main.appendChild(wrap);
+  if(grp==='cat'){
+    // Group by category
+    var catGroups={};
+    ps.forEach(function(p){var c=p.cat||'Λοιπά';if(!catGroups[c])catGroups[c]=[];catGroups[c].push(p);});
+    Object.keys(catGroups).sort().forEach(function(c){
+      var cp=catGroups[c];
+      var catQty=cp.reduce(function(s,p){return s+p._qty;},0);
+      var catVal=cp.reduce(function(s,p){return s+p._val;},0);
+      var catPctQ=grandTotQty>0?Math.round((catQty/grandTotQty)*10000)/100:0;
+      var catPctV=grandTotVal>0?Math.round((catVal/grandTotVal)*10000)/100:0;
+      var catPppr=pppr(catQty),catCost=costPppn(catVal);
+      var cmx=Math.max.apply(null,cp.map(function(p){return p._qty;}));
+      var key='tot|||'+c;var isOC=openC.has(key);
+
+      var cgDiv=document.createElement('div');cgDiv.className='cg';cgDiv.style.cssText='margin-bottom:8px;border:1px solid var(--bd);border-radius:var(--r);overflow:hidden';
+
+      // Category header
+      var chEl=document.createElement('div');
+      chEl.style.cssText='display:flex;align-items:center;gap:8px;padding:.55rem 1rem;background:var(--s2);cursor:pointer;user-select:none';
+      var ceEl=document.createElement('span');ceEl.style.fontSize='16px';ceEl.textContent=icon(c);
+      var cnEl=document.createElement('span');cnEl.style.cssText='font-size:13px;font-weight:600;color:var(--tx)';cnEl.textContent=c;
+      var ckEl=document.createElement('span');ckEl.style.cssText='font-size:10px;background:#fff;color:var(--t2);padding:1px 6px;border-radius:20px;border:1px solid var(--bd)';ckEl.textContent=cp.length+' είδη';
+      var cttEl=document.createElement('span');cttEl.style.cssText='margin-left:auto;font-size:12px;color:var(--t2);text-align:right';
+      cttEl.innerHTML=
+        '<b>'+fmt(catQty)+'</b> <span style="font-size:10px;color:#8b6914">('+catPctQ.toFixed(1)+'%)</span>'+
+        ' &nbsp;<span style="color:#2c7a4b;font-weight:600">'+fmtEur(catVal)+' €</span>'+
+        ' <span style="font-size:10px;color:#2c7a4b">('+catPctV.toFixed(1)+'%)</span>'+
+        (catPppr!==null?' &nbsp;<span style="color:var(--or);font-weight:600">PPPN: '+fmtPppr(catPppr)+'</span>':'')+
+        (catCost!==null?' &nbsp;<span style="color:#b5451b;font-weight:600">Cost: '+fmtCost(catCost)+' €</span>':'');
+      var ccvW=document.createElement('div');ccvW.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;transition:transform .2s;color:var(--t3);margin-left:6px;flex-shrink:0">'+CHEVP+'</svg>';
+      var ccvEl=ccvW.firstChild;if(isOC)ccvEl.style.transform='rotate(180deg)';
+      chEl.appendChild(ceEl);chEl.appendChild(cnEl);chEl.appendChild(ckEl);chEl.appendChild(cttEl);chEl.appendChild(ccvEl);
+
+      // Products table
+      var cbEl=document.createElement('div');cbEl.style.display=isOC?'block':'none';
+
+      var rows='';
+      cp.forEach(function(p,i){
+        var bw=Math.max(2,Math.round((p._qty/cmx)*80));
+        var tpct=grandTotQty>0?Math.round((p._qty/grandTotQty)*10000)/100:0,tpctBW=Math.round(tpct*0.5);
+        var tvpct=grandTotVal>0?Math.round((p._val/grandTotVal)*10000)/100:0,tvpctBW=Math.round(tvpct*0.5);
+        var pv=pppr(p._qty),cv=costPppn(p._val);
+        var pvCell=showP?(pv!==null?'<td class="pppr-cell">'+fmtPppr(pv)+'</td>':'<td class="pppr-na">—</td>'):'';
+        var cvCell=showP?(cv!==null?'<td class="cost-cell">'+fmtCost(cv)+'</td>':'<td class="val-na">—</td>'):'';
+        var valCell=p._val>0?'<td class="val-cell">'+fmtEur(p._val)+'</td>':'<td class="val-na">—</td>';
+        var pctCell='<td class="pct-cell"><div class="pct-bar-wrap"><div class="pct-bar-bg"><div class="pct-bar-fill" style="width:'+tpctBW+'%"></div></div><span class="pct-num">'+tpct.toFixed(2)+'%</span></div></td>';
+        var vpctCell='<td class="vpct-cell"><div class="vpct-bar-wrap"><div class="vpct-bar-bg"><div class="vpct-bar-fill" style="width:'+tvpctBW+'%"></div></div><span class="vpct-num">'+tvpct.toFixed(2)+'%</span></div></td>';
+        var pills=p.depts.slice().sort().map(function(d){var sp=document.createElement('span');sp.className='dp';sp.textContent=d;return sp.outerHTML;}).join('');
+        rows+='<tr>'+
+          '<td class="c" style="color:var(--t3);font-size:12px">'+(i+1)+'</td>'+
+          '<td class="cod">'+esc(p.code)+'</td>'+
+          '<td><div style="margin-bottom:2px">'+esc(p.name)+'</div><div style="font-size:11px;line-height:1.8">'+pills+'</div></td>'+
+          '<td class="c"><span class="mmb">'+esc(p.mm)+'</span></td>'+
+          '<td class="c" style="color:var(--t3)">'+p._lines+'</td>'+
+          '<td class="c"><span style="font-weight:600;color:var(--bl)">'+p.depts.length+'</span></td>'+
+          '<td class="r"><div class="qc"><div class="bar bar2" style="width:'+bw+'px"></div><span class="qn">'+fmt(p._qty)+'</span></div></td>'+
+          pctCell+valCell+vpctCell+pvCell+cvCell+'</tr>';
+      });
+      cbEl.innerHTML='<table><thead><tr>'+
+        '<th class="c" style="width:30px">#</th>'+
+        '<th style="width:100px">Κωδικός</th>'+
+        '<th>Περιγραφή &amp; Τμήματα</th>'+
+        '<th class="c" style="width:50px">ΜΜ</th>'+
+        '<th class="c" style="width:40px">Κιν.</th>'+
+        '<th class="c" style="width:50px">Τμήμ.</th>'+
+        '<th class="r" style="width:100px">Σύν. Ποσ.</th>'+
+        '<th class="r pct-th" style="width:82px">% Ποσ.</th>'+
+        '<th class="r val-th" style="width:100px">Αξία €</th>'+
+        '<th class="r vpct-th" style="width:82px">% Αξίας</th>'+
+        (showP?'<th class="r pppr-th" style="width:82px">PPPN 🛏️</th>':'')+
+        (showP?'<th class="r cost-th" style="width:88px">Cost PPPN €</th>':'')+
+        '</tr></thead><tbody>'+rows+'</tbody></table>';
+
+      chEl.addEventListener('click',(function(k,ch2,cb2,ccv2){
+        return function(){
+          if(openC.has(k)){openC.delete(k);cb2.style.display='none';ccv2.style.transform='';}
+          else{openC.add(k);cb2.style.display='block';ccv2.style.transform='rotate(180deg)';}
+        };
+      })(key,chEl,cbEl,ccvEl));
+
+      cgDiv.appendChild(chEl);cgDiv.appendChild(cbEl);main.appendChild(cgDiv);
+    });
+
+  } else {
+    // Flat list (original)
+    var wrap=document.createElement('div');wrap.className='tw';
+    var tbl=document.createElement('table');
+    tbl.innerHTML='<thead><tr>'+
+      '<th class="c" style="width:30px">#</th><th style="width:100px">Κωδικός</th>'+
+      '<th>Περιγραφή &amp; Τμήματα</th><th class="c" style="width:50px">ΜΜ</th>'+
+      '<th style="width:120px">Κατηγορία</th><th class="c" style="width:40px">Κιν.</th>'+
+      '<th class="c" style="width:50px">Τμήμ.</th><th class="r" style="width:100px">Σύν. Ποσ.</th>'+
+      '<th class="r pct-th" style="width:82px">% Ποσ.</th>'+
+      '<th class="r val-th" style="width:100px">Αξία €</th>'+
+      '<th class="r vpct-th" style="width:82px">% Αξίας</th>'+
+      (showP?'<th class="r pppr-th" style="width:82px">PPPN 🛏️</th>':'')+
+      (showP?'<th class="r cost-th" style="width:88px">Cost PPPN €</th>':'')+
+      '</tr></thead>';
+    var tb=document.createElement('tbody');
+    ps.forEach(function(p,i){
+      var bw=Math.max(2,Math.round((p._qty/mx)*80));
+      var tpct=grandTotQty>0?Math.round((p._qty/grandTotQty)*10000)/100:0,tpctBW=Math.round(tpct*0.5);
+      var tvpct=grandTotVal>0?Math.round((p._val/grandTotVal)*10000)/100:0,tvpctBW=Math.round(tvpct*0.5);
+      var pv=pppr(p._qty),cv=costPppn(p._val);
+      var pvCell=showP?(pv!==null?'<td class="pppr-cell">'+fmtPppr(pv)+'</td>':'<td class="pppr-na">—</td>'):'';
+      var cvCell=showP?(cv!==null?'<td class="cost-cell">'+fmtCost(cv)+'</td>':'<td class="val-na">—</td>'):'';
+      var valCell=p._val>0?'<td class="val-cell">'+fmtEur(p._val)+'</td>':'<td class="val-na">—</td>';
+      var pctCell='<td class="pct-cell"><div class="pct-bar-wrap"><div class="pct-bar-bg"><div class="pct-bar-fill" style="width:'+tpctBW+'%"></div></div><span class="pct-num">'+tpct.toFixed(2)+'%</span></div></td>';
+      var vpctCell='<td class="vpct-cell"><div class="vpct-bar-wrap"><div class="vpct-bar-bg"><div class="vpct-bar-fill" style="width:'+tvpctBW+'%"></div></div><span class="vpct-num">'+tvpct.toFixed(2)+'%</span></div></td>';
+      var tr=document.createElement('tr');
+      var pills=p.depts.slice().sort().map(function(d){var sp=document.createElement('span');sp.className='dp';sp.textContent=d;return sp.outerHTML;}).join('');
+      tr.innerHTML=
+        '<td class="c" style="color:var(--t3);font-size:12px">'+(i+1)+'</td>'+
+        '<td class="cod">'+esc(p.code)+'</td>'+
+        '<td><div style="margin-bottom:2px">'+esc(p.name)+'</div><div style="font-size:11px;line-height:1.8">'+pills+'</div></td>'+
+        '<td class="c"><span class="mmb">'+esc(p.mm)+'</span></td>'+
+        '<td><span class="catb">'+icon(p.cat)+' '+esc(p.cat)+'</span></td>'+
+        '<td class="c" style="color:var(--t3)">'+p._lines+'</td>'+
+        '<td class="c"><span style="font-weight:600;color:var(--bl)">'+p.depts.length+'</span></td>'+
+        '<td class="r"><div class="qc"><div class="bar bar2" style="width:'+bw+'px"></div><span class="qn">'+fmt(p._qty)+'</span></div></td>'+
+        pctCell+valCell+vpctCell+pvCell+cvCell;
+      tb.appendChild(tr);
+    });
+    tbl.appendChild(tb);wrap.appendChild(tbl);main.appendChild(wrap);
+  }
 }
 
 function sw(t){
