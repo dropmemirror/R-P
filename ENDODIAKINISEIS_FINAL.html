@@ -1070,10 +1070,14 @@ function renderDept(){
         var cpv=pppr(ct);
         var ctVal=cp.reduce(function(s,p){return s+p._val;},0);
         var ccost=costPppn(ctVal);
+        var catPctQ=grandTotalQty>0?Math.round((ct/grandTotalQty)*10000)/100:0;
+        var catPctV=grandTotalVal>0?Math.round((ctVal/grandTotalVal)*10000)/100:0;
         ctt.innerHTML=fmt(ct)+
+          ' <span style="font-size:10px;color:#8b6914">('+catPctQ.toFixed(1)+'%)</span>'+
           ' &nbsp;<span style="color:#2c7a4b">'+fmtEur(ctVal)+' €</span>'+
+          ' <span style="font-size:10px;color:#2c7a4b">('+catPctV.toFixed(1)+'%)</span>'+
           (cpv!==null?' &nbsp;PPPN: <b style="color:var(--or)">'+fmtPppr(cpv)+'</b>':'')+
-          (ccost!==null?' &nbsp;Cost: <b style="color:#b5451b">'+fmtCost(ccost)+'</b>':'');
+          (ccost!==null?' &nbsp;Cost PPPN: <b style="color:#b5451b">'+fmtCost(ccost)+' €</b>':'');
         var ccvW=document.createElement('div');ccvW.innerHTML='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;transition:transform .2s;color:var(--t3)">'+CHEVP+'</svg>';
         var ccvEl=ccvW.firstChild;if(isOC)ccvEl.style.transform='rotate(180deg)';
         chEl.appendChild(ce);chEl.appendChild(cn);chEl.appendChild(ckEl);chEl.appendChild(ctt);chEl.appendChild(ccvEl);
