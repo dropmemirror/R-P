@@ -119,6 +119,17 @@ tr:last-child td{border-bottom:none}tr:hover td{background:var(--bg)}
 .tw{background:var(--sf);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden}
 .dp{display:inline-block;font-size:10px;background:#e8f0fe;color:#1a56db;padding:1px 6px;border-radius:4px;margin:1px;white-space:nowrap}
 .empty{padding:60px 20px;text-align:center;color:var(--t2);font-size:15px}
+.cat-sum-row{display:flex;align-items:center;gap:8px;padding:5px 10px;border-radius:6px;background:var(--s2);font-size:12px;cursor:pointer;transition:background .15s}
+.cat-sum-row:hover{background:var(--bd)}
+.cat-sum-row.active{background:var(--al);outline:1px solid var(--ac)}
+.cat-sum-icon{font-size:15px;flex-shrink:0}
+.cat-sum-name{font-weight:600;color:var(--tx);min-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cat-sum-qty{color:var(--t2);white-space:nowrap}
+.cat-sum-pctq{font-size:10px;color:#8b6914;font-weight:600;white-space:nowrap}
+.cat-sum-val{color:#2c7a4b;font-weight:600;white-space:nowrap}
+.cat-sum-pctv{font-size:10px;color:#2c7a4b;font-weight:600;white-space:nowrap}
+.cat-sum-pppn{color:var(--or);font-weight:600;white-space:nowrap}
+.cat-sum-cost{color:#b5451b;font-weight:600;white-space:nowrap}
 .no-data{text-align:center;padding:30px;color:var(--t3);font-size:13px}
 
 /* ===== LOGIN ===== */
@@ -398,6 +409,13 @@ tr:last-child td{border-bottom:none}tr:hover td{background:var(--bg)}
 
 <!-- TOTAL TAB -->
 <div id="vtot" style="display:none">
+  <!-- CATEGORY SUMMARY -->
+  <div id="cat-summary" style="background:var(--sf);border-bottom:1px solid var(--bd);padding:.75rem 1.5rem">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem">
+      <span style="font-size:12px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.05em">Σύνολα ανά Κατηγορία</span>
+    </div>
+    <div id="cat-summary-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:4px"></div>
+  </div>
   <div class="tb">
     <div class="sw">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -1106,6 +1124,38 @@ function renderDept(){
 function oAll(){openD=new Set(DEPTS);render();}
 function cAll(){openD.clear();render();}
 
+function buildCatSummary(ps,grandTotQty,grandTotVal){
+  var grid=document.getElementById('cat-summary-grid');
+  if(!grid)return;
+  var cats={};
+  ps.forEach(function(p){
+    var c=p.cat||'Λοιπά';
+    if(!cats[c])cats[c]={qty:0,val:0};
+    cats[c].qty+=p._qty;cats[c].val+=p._val;
+  });
+  var sorted=Object.keys(cats).sort(function(a,b){return cats[b].val-cats[a].val;});
+  grid.innerHTML='';
+  sorted.forEach(function(c){
+    var cq=cats[c].qty,cv=cats[c].val;
+    var pctQ=grandTotQty>0?Math.round((cq/grandTotQty)*10000)/100:0;
+    var pctV=grandTotVal>0?Math.round((cv/grandTotVal)*10000)/100:0;
+    var pv=pppr(cq),cost=costPppn(cv);
+    var row=document.createElement('div');
+    row.className='cat-sum-row'+(tCF===c?' active':'');
+    row.innerHTML=
+      '<span class="cat-sum-icon">'+icon(c)+'</span>'+
+      '<span class="cat-sum-name">'+esc(c)+'</span>'+
+      '<span class="cat-sum-qty">'+fmt(cq)+'</span>'+
+      '<span class="cat-sum-pctq">('+pctQ.toFixed(1)+'%)</span>'+
+      '<span class="cat-sum-val">'+fmtEur(cv)+' €</span>'+
+      '<span class="cat-sum-pctv">('+pctV.toFixed(1)+'%)</span>'+
+      (pv!==null?'<span class="cat-sum-pppn">PPPN: '+fmtPppr(pv)+'</span>':'')+
+      (cost!==null?'<span class="cat-sum-cost">Cost: '+fmtCost(cost)+' €</span>':'');
+    row.addEventListener('click',function(){setTCat(tCF===c?'':c);});
+    grid.appendChild(row);
+  });
+}
+
 function renderTotal(){
   var q=(document.getElementById('st').value||'').trim().toLowerCase();
   var sm=document.getElementById('ts').value;
@@ -1126,9 +1176,10 @@ function renderTotal(){
   else ps.sort(function(a,b){return b._qty-a._qty;});
 
   var main=document.getElementById('mt');
-  if(!ps.length){main.innerHTML='<div class="empty">&#128269; Δεν βρέθηκαν αποτελέσματα</div>';return;}
+  if(!ps.length){main.innerHTML='<div class="empty">&#128269; Δεν βρέθηκαν αποτελέσματα</div>';buildCatSummary([],0,0);return;}
   grandTotQty=ps.reduce(function(s,p){return s+p._qty;},0);
   var grandTotVal=ps.reduce(function(s,p){return s+p._val;},0);
+  buildCatSummary(ps,grandTotQty,grandTotVal);
   var mx=Math.max.apply(null,ps.map(function(p){return p._qty;}));
   main.innerHTML='';
 
