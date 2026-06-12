@@ -314,6 +314,41 @@ tr:last-child td{border-bottom:none}tr:hover td{background:var(--bg)}
   <div style="flex:1;min-width:130px;padding:.5rem 1rem;text-align:center"><div class="kpi-num amber" id="kpi-gross-pppn">—</div><div class="kpi-lbl">Gross Cost / Night</div><div class="kpi-sub">Αγορές ÷ Νύχτες</div></div>
   <div style="flex:1;min-width:130px;padding:.5rem 1rem;text-align:center"><div class="kpi-num green" id="kpi-net-pppn">—</div><div class="kpi-lbl">Net Cost / Night</div><div class="kpi-sub">Καθαρό ÷ Νύχτες</div></div>
 </div>
+<div id="fb-bar" style="background:#1e1c18;border-bottom:1px solid #2d2b27;display:flex">
+  <div style="flex:1;padding:10px 20px;border-right:1px solid rgba(255,255,255,.06);display:flex;align-items:center;gap:14px">
+    <span style="font-size:20px">🍽️</span>
+    <div>
+      <div style="font-size:10px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">Σύνολο Τροφίμων</div>
+      <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+        <span style="font-size:15px;font-weight:700;color:#86efac" id="fb-food-val">—</span>
+        <span style="font-size:11px;color:rgba(255,255,255,.35)">Cost/Night:</span>
+        <span style="font-size:15px;font-weight:700;color:#fbbf24" id="fb-food-night">—</span>
+      </div>
+    </div>
+  </div>
+  <div style="flex:1;padding:10px 20px;border-right:1px solid rgba(255,255,255,.06);display:flex;align-items:center;gap:14px">
+    <span style="font-size:20px">🍷</span>
+    <div>
+      <div style="font-size:10px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">Σύνολο Ποτών</div>
+      <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+        <span style="font-size:15px;font-weight:700;color:#86efac" id="fb-bev-val">—</span>
+        <span style="font-size:11px;color:rgba(255,255,255,.35)">Cost/Night:</span>
+        <span style="font-size:15px;font-weight:700;color:#fbbf24" id="fb-bev-night">—</span>
+      </div>
+    </div>
+  </div>
+  <div style="flex:1;padding:10px 20px;display:flex;align-items:center;gap:14px">
+    <span style="font-size:20px">📊</span>
+    <div>
+      <div style="font-size:10px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.06em;margin-bottom:3px">Food + Bev Σύνολο</div>
+      <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+        <span style="font-size:15px;font-weight:700;color:#60a5fa" id="fb-total-val">—</span>
+        <span style="font-size:11px;color:rgba(255,255,255,.35)">Cost/Night:</span>
+        <span style="font-size:15px;font-weight:700;color:#fbbf24" id="fb-total-night">—</span>
+      </div>
+    </div>
+  </div>
+</div>
 <div class="tabs">
   <div class="tab on" id="tdept" onclick="sw('dept')">
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg>
@@ -652,6 +687,13 @@ var activeMon='';
 var NIGHTS=0;
 var grandTotalQty=0;
 var grandTotQty=0;
+var FOOD_CATS=['ΚΡΕΑΤΑ','ΑΛΙΕΥΜΑΤΑ','ΓΑΛΑΚΤΟΚΟΜΙΚΑ','ΦΡΟΥΤΑ ΚΑΙ ΛΑΧΑΝΙΚΑ','ΑΡΤΟΠΟΙΗΜΑΤΑ',
+  'ΕΙΔΗ ΖΑΧΑΡΟΠΛΑΣΤΙΚΗΣ','ΑΛΛΑΝΤΙΚΑ','ΚΑΤΕΨΥΓΜΕΝΑ ΦΡΟΥΤΑ/ΛΑΧΑΝΙΚΑ','ΚΟΝΣΕΡΒΕΣ',
+  'ΖΥΜΑΡΙΚΑ/ΡΥΖΙ/ΟΣΠΡΙΑ','ΜΠΑΧΑΡΙΚΑ','ΣΑΛΤΣΕΣ/ΖΩΜΟΙ/ ΣΟΥΠΕΣ','ΕΛΑΙΑ/ΒΟΥΤΥΡΑ/ΞΥΔΙ',
+  'ΑΛΕΥΡΙ','ΔΙΑΦΟΡΑ ΤΡΟΦΙΜΑ','ΔΙΕΘΝΗΣ ΚΟΥΖΙΝΑ','ΠΑΓΩΤΑ','ΞΗΡΟΙ ΚΑΡΠΟΙ/ΦΡΟΥΤΑ','ΔΗΜΗΤΡΙΑΚΑ'];
+var BEV_CATS=['ΚΡΑΣΙΑ','ΜΠΥΡΕΣ','ΑΝΑΨΥΚΤΙΚΑ/ΧΥΜΟΙ','ΝΕΡΑ/ΑΝΘΡΑΚΟΥΧΑ','ΡΟΦΗΜΑΤΑ',
+  'ΟΥΙΣΚΙ','ΒΟΤΚΑ','ΤΖΙΝ','ΡΟΥΜΙ','ΤΕΚΙΛΑ','ΜΠΡΑΝΤΥ/ΚΟΝΙΑΚ','ΛΙΚΕΡ','ΑΠΕΡΙΤΙΦ',
+  'ΕΤΟΙΜΑ ΚΟΚΤΕΗΛ','ΕΙΔΗ ΓΙΑ COCKTAIL','ΜΙΝΙΑΤΟΥΡΕΣ'];
 
 // Collect months
 var monthsSet={};
@@ -1431,6 +1473,21 @@ function updateKpi(){
   setKpi('kpi-net-pppn',(nights>0&&inv.hasData)?f2(netCost/nights)+' €':'—');
   var el=document.getElementById('kpi-net-pppn');
   if(el)el.className='kpi-num '+(nights>0&&inv.hasData?'green':'');
+  // Food & Bev
+  var foodVal=0,bevVal=0;
+  Object.values(TD).forEach(function(p){
+    var r=calcProdTotal(p);
+    if(FOOD_CATS.indexOf(p.cat)>=0)foodVal+=r.val;
+    else if(BEV_CATS.indexOf(p.cat)>=0)bevVal+=r.val;
+  });
+  var fbTot=foodVal+bevVal;
+  function sk2(id,v){var e=document.getElementById(id);if(e)e.textContent=v;}
+  sk2('fb-food-val',f2(foodVal)+' €');
+  sk2('fb-bev-val',f2(bevVal)+' €');
+  sk2('fb-total-val',f2(fbTot)+' €');
+  sk2('fb-food-night',nights>0?f2(foodVal/nights)+' €':'—');
+  sk2('fb-bev-night',nights>0?f2(bevVal/nights)+' €':'—');
+  sk2('fb-total-night',nights>0?f2(fbTot/nights)+' €':'—');
 }
 
 updateNightsDisplay();
